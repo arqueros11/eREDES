@@ -32,6 +32,21 @@ jobs:
         run: |
           Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/latest/download/eREDES-Windows.zip" -OutFile e.zip
           Expand-Archive e.zip C:\eREDES -Force
+      - name: Antivirus (Microsoft Defender con firmas actualizadas)
+        shell: pwsh
+        run: |
+          $mp = "$env:ProgramFiles\Windows Defender\MpCmdRun.exe"
+          & $mp -SignatureUpdate | Out-String
+          Get-MpComputerStatus | Select-Object AMServiceEnabled,AntivirusEnabled,AntivirusSignatureVersion,AntivirusSignatureLastUpdated | Format-List | Out-String
+          $targets = @("C:\eREDES")
+          if (Test-Path e.zip) { $targets += (Resolve-Path e.zip).Path }
+          foreach ($t in $targets) {
+            & $mp -Scan -ScanType 3 -File $t -DisableRemediation | Out-String
+            "DEFENDER $t -> codigo $LASTEXITCODE (0 = sin amenazas, 2 = amenaza encontrada)"
+          }
+          "---- detecciones ----"
+          Get-MpThreatDetection | Format-List | Out-String
+          exit 0
       - name: Crear varias impresoras de prueba (como en un PC real)
         shell: pwsh
         run: |
