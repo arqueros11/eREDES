@@ -1,0 +1,14 @@
+{
+  "id": "xprinter_web",
+  "manufacturer": "XPRINTER",
+  "name": "Xprinter (interfaz web / utilidad oficial)",
+  "method": "web",
+  "url": "http://{ip}/",
+  "verified": false,
+  "instructions": [
+    "IP de fábrica habitual: 192.168.123.100 (verifíquela en la hoja de autotest: mantener FEED al encender).",
+    "Si el modelo tiene página web, cambie la IP desde la sección de red.",
+    "Si no tiene página web, use la utilidad oficial de Xprinter para Windows (configuración de red por UDP); su protocolo no está documentado públicamente y eREDES no lo emula.",
+    "Para automatizarlo, añada un perfil 'raw_tcp' o 'http_post' con la secuencia documentada por el fabricante."
+  ]
+}

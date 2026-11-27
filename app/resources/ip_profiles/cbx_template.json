@@ -1,0 +1,20 @@
+{
+  "id": "cbx_template",
+  "manufacturer": "CBX",
+  "name": "CBX — perfil pendiente de datos del fabricante",
+  "method": "raw_tcp",
+  "enabled": false,
+  "port": 9100,
+  "payload_hex": "",
+  "verified": false,
+  "missing": [
+    "Modelo exacto de la impresora CBX y de su interfaz de red",
+    "Procedimiento oficial de cambio de IP (página web, utilidad de Windows o comando)",
+    "Si es por comando: secuencia de bytes documentada (con marcadores {ip0}..{ip3}, {mask0}..{mask3}, {gw0}..{gw3})",
+    "Puerto y protocolo (TCP 9100, UDP de difusión, HTTP POST con campos del formulario)"
+  ],
+  "instructions": [
+    "Mientras no se complete este perfil, use 'Interfaz web de la impresora (genérico)'.",
+    "No todas las impresoras CBX usan el mismo procedimiento: cree un perfil por modelo en data/ip_profiles/."
+  ]
+}

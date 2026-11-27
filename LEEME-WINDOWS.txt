@@ -1,0 +1,22 @@
+eREDES ERMA.V1.0.0 - INSTALAR EN WINDOWS 10 / 11
+================================================
+
+OPCION A (recomendada, sin instalar nada): descargar desde GitHub
+  1. Entrar en la pagina del repositorio de eREDES en GitHub > "Releases".
+  2. Descargar  eREDES-Windows.zip  de la ultima version (ERMA.V...).
+  3. Descomprimir (por ejemplo en C:\eREDES).
+  4. Doble clic en  eREDES.exe  (clic derecho > Enviar a > Escritorio para el acceso directo).
+  5. Para versiones nuevas: boton "Actualizar" abajo a la izquierda dentro de la app.
+
+OPCION B (compilar en el PC con este codigo)
+  1. Instalar Python 3.12 desde python.org  (marcar "Add Python to PATH").
+  2. Doble clic en  build_windows.bat  y esperar a que diga "Listo".
+  3. Se crea el acceso directo "eREDES" en el Escritorio.
+     El programa queda en  dist\eREDES\eREDES.exe
+  4. Para llevarlo a otros PCs: copiar solo la carpeta  dist\eREDES  (no necesita Python).
+
+Notas
+  - Windows pedira permiso de administrador al abrir: es necesario para instalar
+    impresoras, puertos y drivers.
+  - Tus drivers van en la carpeta DRIVERS que esta junto a eREDES.exe.
+  - Las actualizaciones nunca borran DRIVERS, data, logs ni reports.

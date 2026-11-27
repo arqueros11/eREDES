@@ -1,0 +1,45 @@
+*PPD-Adobe: "4.3"
+*% eREDES - PPD de paso directo para impresoras termicas ESC/POS.
+*% macOS 13+ ya no admite colas "raw". Este PPD crea una cola que envia
+*% texto plano y datos RAW (lp -o raw) sin conversion a la impresora.
+*% Para imprimir documentos/PDF desde aplicaciones de macOS instale el
+*% controlador oficial del fabricante (por ejemplo Epson TM Driver for Mac).
+*FormatVersion: "4.3"
+*FileVersion: "1.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "EREDESRW.PPD"
+*Manufacturer: "eREDES"
+*Product: "(eREDES ESC/POS)"
+*ModelName: "eREDES ESC/POS Generic RAW"
+*ShortNickName: "eREDES ESC/POS RAW"
+*NickName: "eREDES ESC/POS Generic RAW (texto y datos directos)"
+*PSVersion: "(3010.000) 0"
+*LanguageLevel: "3"
+*ColorDevice: False
+*DefaultColorSpace: Gray
+*FileSystem: False
+*Throughput: "1"
+*LandscapeOrientation: Plus90
+*TTRasterizer: Type42
+*cupsVersion: 2.2
+*cupsFilter: "application/vnd.cups-raw 0 -"
+*cupsFilter: "text/plain 0 -"
+*OpenUI *PageSize: PickOne
+*OrderDependency: 10 AnySetup *PageSize
+*DefaultPageSize: X80mm
+*PageSize X80mm/Rollo 80 mm: "<</PageSize[227 842]>>setpagedevice"
+*PageSize X58mm/Rollo 58 mm: "<</PageSize[164 842]>>setpagedevice"
+*CloseUI: *PageSize
+*OpenUI *PageRegion: PickOne
+*OrderDependency: 10 AnySetup *PageRegion
+*DefaultPageRegion: X80mm
+*PageRegion X80mm/Rollo 80 mm: "<</PageSize[227 842]>>setpagedevice"
+*PageRegion X58mm/Rollo 58 mm: "<</PageSize[164 842]>>setpagedevice"
+*CloseUI: *PageRegion
+*DefaultImageableArea: X80mm
+*ImageableArea X80mm/Rollo 80 mm: "0 0 227 842"
+*ImageableArea X58mm/Rollo 58 mm: "0 0 164 842"
+*DefaultPaperDimension: X80mm
+*PaperDimension X80mm/Rollo 80 mm: "227 842"
+*PaperDimension X58mm/Rollo 58 mm: "164 842"

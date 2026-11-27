@@ -1,0 +1,14 @@
+{
+  "id": "epson_tm_web",
+  "manufacturer": "EPSON",
+  "name": "Epson TM (interfaz UB-E0x / web)",
+  "method": "web",
+  "url": "http://{ip}/",
+  "verified": true,
+  "instructions": [
+    "IP de fábrica habitual en interfaces Epson UB-E0x: 192.168.192.168 (compruébela en la hoja de autotest: mantener FEED al encender).",
+    "Abra la configuración web (EpsonNet Config Web), sección TCP/IP: desactive DHCP/APIPA si procede y escriba IP, máscara y gateway.",
+    "Herramientas oficiales alternativas: EpsonNet Config para Windows o la utilidad TM del modelo.",
+    "Pulse 'Verificar nueva configuración' en eREDES cuando la impresora reinicie."
+  ]
+}

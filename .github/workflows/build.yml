@@ -1,0 +1,68 @@
+# Compila eREDES para Windows y macOS en GitHub (PyInstaller no compila de forma cruzada).
+# - En cada push: compila y prueba (artefactos descargables desde la pestaña Actions).
+# - Al subir una etiqueta ERMA.VX.Y.Z (./publicar_version.sh X.Y.Z): además crea la Release
+#   con eREDES-Windows.zip y eREDES-macOS.zip, que es de donde descarga el botón "Actualizar".
+name: build
+on:
+  push:
+    branches: [main]
+    tags: ["ERMA.V*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Comprobar versión
+        if: startsWith(github.ref, 'refs/tags/ERMA.V')
+        shell: bash
+        run: |
+          V=$(python -c "import re;print(re.search(r'APP_VERSION = \"(.+?)\"', open('app/core/paths.py').read()).group(1))")
+          [ "ERMA.V$V" = "${GITHUB_REF_NAME}" ] || { echo "La etiqueta ${GITHUB_REF_NAME} no coincide con APP_VERSION=$V"; exit 1; }
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q tests
+      - run: cmd /c build_windows.bat
+      - name: SHA-256
+        shell: pwsh
+        run: (Get-FileHash dist/eREDES-Windows.zip -Algorithm SHA256).Hash.ToLower() + "  eREDES-Windows.zip" | Out-File -Encoding ascii dist/eREDES-Windows.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eREDES-Windows
+          path: |
+            dist/eREDES-Windows.zip
+            dist/eREDES-Windows.zip.sha256
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt && python -m pytest -q tests -k "not printers_integration"
+      - run: ./build_mac.sh
+      - run: cd dist && shasum -a 256 eREDES-macOS.zip > eREDES-macOS.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eREDES-macOS
+          path: |
+            dist/eREDES-macOS.zip
+            dist/eREDES-macOS.zip.sha256
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/ERMA.V')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: out/*

@@ -1,0 +1,14 @@
+{
+  "id": "generic_web",
+  "manufacturer": "*",
+  "name": "Interfaz web de la impresora (genérico)",
+  "method": "web",
+  "url": "http://{ip}/",
+  "verified": true,
+  "instructions": [
+    "Muchas impresoras de red (Epson UB-E0x, Xprinter, CBX y otras) incluyen una página web de configuración.",
+    "Con la IP temporal activa, abra la página, vaya a la sección de red/TCP-IP y cambie IP, máscara y gateway.",
+    "Guarde y reinicie la impresora si la página lo indica.",
+    "Después pulse 'Verificar nueva configuración' en eREDES."
+  ]
+}
