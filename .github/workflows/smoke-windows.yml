@@ -29,6 +29,13 @@ jobs:
         run: |
           Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/latest/download/eREDES-Windows.zip" -OutFile e.zip
           Expand-Archive e.zip C:\eREDES -Force
+      - name: Crear varias impresoras de prueba (como en un PC real)
+        shell: pwsh
+        run: |
+          foreach ($n in "COCINA","BARRA","CAJA 1","Zeta","alfa") {
+            Add-Printer -Name $n -DriverName "Microsoft Print To PDF" -PortName "PORTPROMPT:"
+          }
+          Get-Printer | Select-Object Name | Format-Table | Out-String
       - name: Abrir eREDES.exe
         shell: pwsh
         run: |
