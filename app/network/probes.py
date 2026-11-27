@@ -306,5 +306,7 @@ SERVICE_NAMES = {
     9100: "RAW/JetDirect (impresión)", 9101: "RAW 9101", 9102: "RAW 9102", 515: "LPD (impresión)",
     631: "IPP (impresión)", 80: "HTTP", 443: "HTTPS", 8080: "HTTP alternativo", 22: "SSH", 23: "Telnet",
     139: "NetBIOS", 445: "SMB (archivos Windows)", 3389: "Escritorio remoto", 5900: "VNC", 161: "SNMP",
-    21: "FTP", 53: "DNS", 8000: "HTTP 8000", 8443: "HTTPS alternativo",
+    21: "FTP", 53: "DNS", 8000: "Hikvision / HTTP 8000", 8443: "HTTPS alternativo", 554: "RTSP (video)",
+    37777: "Dahua (cámaras)", 34567: "DVR XMEye", 8899: "ONVIF (cámaras)", 135: "RPC Windows",
+    8008: "Chromecast", 8009: "Chromecast", 3001: "LG webOS", 8002: "Samsung TV",
 }

@@ -18,7 +18,7 @@ from ..bus import bus, notify
 from ..widgets import sort_table, Card, TaskPanel, button, fill_table, info_dialog, make_table, selected_data
 from .base import BasePage
 
-FILTERS = ("Todas", "En uso", "Libres", "Impresoras")
+FILTERS = ("Todas", "En uso", "Libres", "Impresoras", "Cámaras")
 
 
 def _load_net(ctx):
@@ -88,8 +88,8 @@ class ScannerPage(BasePage):
         fl.addWidget(self.summary)
         fl.addStretch(1)
         card.add(fl)
-        self.table = make_table(["IP", "Estado", "Ping", "Tipo", "Fabricante", "Nombre", "MAC", "Puertos"],
-                                stretch_col=3)
+        self.table = make_table(["IP", "Estado", "Ping", "Tipo", "Por qué", "Fabricante", "Nombre", "MAC", "Puertos"],
+                                stretch_col=4)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._menu)
         self.table.doubleClicked.connect(lambda _i: self._primary_action())
@@ -220,19 +220,29 @@ class ScannerPage(BasePage):
             1: sum(1 for h in self.hosts if h.status == "En uso"),
             2: sum(1 for h in self.hosts if h.status == "Libre"),
             3: sum(1 for h in self.hosts if "mpresora" in h.dev_type),
+            4: sum(1 for h in self.hosts if h.dev_type.startswith("Cámara")),
         }
         for i, b in enumerate(self.fbtns):
             b.setText(f"{FILTERS[i]}  {counts[i]}" if self.hosts else FILTERS[i])
         hosts = [h for h in self.hosts if f == 0 or (f == 1 and h.status == "En uso")
-                 or (f == 2 and h.status == "Libre") or (f == 3 and "mpresora" in h.dev_type)]
+                 or (f == 2 and h.status == "Libre") or (f == 3 and "mpresora" in h.dev_type)
+                 or (f == 4 and h.dev_type.startswith("Cámara"))]
         rows = [[h.ip, h.status, f"{h.rtt_ms:.0f} ms" if (h.alive and h.rtt_ms is not None) else "",
-                 h.dev_type, h.vendor,
+                 h.dev_type, h.reason, h.vendor,
                  (f"{h.installed_as} (instalada)" if h.installed_as and h.status == "En uso" else h.hostname),
                  h.mac, h.ports_text] for h in hosts]
         st_color = {"En uso": pal.primary, "Libre": pal.success, "Reservada": pal.warning, "Sin respuesta": pal.muted}
 
         def type_color(s):
-            return pal.success if s.startswith("Impresora") else (pal.warning if s.startswith("Posible") else None)
+            if s.startswith("Impresora"):
+                return pal.success
+            if s.startswith("Posible"):
+                return pal.warning
+            if s.startswith("Cámara"):
+                return "#AF52DE"   # morado: cámaras / DVR
+            if s.startswith("Router"):
+                return pal.primary
+            return None
         fill_table(self.table, rows, data=hosts, colors={1: lambda s: st_color.get(s), 3: type_color})
         sort_table(self.table, 0)
         if any(h.status == "Sin respuesta" for h in hosts):

@@ -121,3 +121,24 @@ def test_ip_profile_fill_and_template_blocked():
     r = ip_recovery.apply_profile(cbx, "192.168.0.100", "192.168.1.240", "255.255.255.0", "192.168.1.1")
     assert not r.ok and "incompleto" in r.message
     assert ip_recovery.suggest_temp_ip("192.168.0.0/24") == "192.168.0.251"
+
+
+def test_classify_device_types():
+    from app.network.scanner import HostResult, classify_reason
+    pp = [9100, 9101, 9102, 515, 631]
+
+    def c(**kw):
+        return classify_reason(HostResult(ip=kw.pop("ip", "192.168.1.50"), alive=True, **kw), "192.168.1.1", pp)
+
+    assert c(open_ports=[9100, 80])[0].startswith("Impresora")
+    assert "9100" in c(open_ports=[9100])[1]
+    assert c(open_ports=[554, 80])[0] == "Cámara / DVR"
+    assert c(open_ports=[80], vendor="Hangzhou Hikvision Digital Technology")[0] == "Cámara / DVR"
+    assert c(open_ports=[37777])[0] == "Cámara / DVR"
+    assert c(open_ports=[445, 139])[0] == "Computadora (Windows)"
+    assert c(ip="192.168.1.1", open_ports=[80])[0] == "Router / Gateway"
+    assert c(open_ports=[80, 443], vendor="TP-LINK TECHNOLOGIES CO.,LTD.")[0] == "Router / Access point"
+    assert c(open_ports=[8008, 8009])[0] == "TV / Chromecast"
+    assert c(open_ports=[], vendor="(MAC aleatoria/local)")[0] == "Celular / portátil"
+    t, why = c(open_ports=[])
+    assert t == "Dispositivo" and why

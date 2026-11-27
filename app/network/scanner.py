@@ -45,6 +45,7 @@ class HostResult:
     status: str = ""
     is_self: bool = False
     installed_as: str = ""   # impresora de este equipo que usa esta IP
+    reason: str = ""         # por qué se cree que es ese tipo de equipo
 
     @property
     def ports_text(self) -> str:
@@ -55,33 +56,85 @@ class HostResult:
         return self.dev_type.startswith("Impresora")
 
 
-def classify(h: HostResult, gateway: str, printer_ports: list[int]) -> str:
+# Pistas para reconocer el tipo de equipo (por la red no se "ve" el aparato: se deduce de los
+# servicios que ofrece, del fabricante de su tarjeta de red y de lo que dice de sí mismo).
+IDENT_PORTS = [554, 8000, 37777, 34567, 8899, 53, 135, 8008, 8009, 3001, 8002]
+CAMERA_PORTS = {554: "554 (video RTSP)", 37777: "37777 (Dahua)", 8000: "8000 (Hikvision)",
+                34567: "34567 (DVR XMEye)", 8899: "8899 (ONVIF)"}
+CAMERA_VENDORS = ("hikvision", "dahua", "uniview", "ezviz", "xiongmai", "tiandy", "axis communications",
+                  "hanwha", "samsung techwin", "vivotek", "imou", "reolink", "amcrest", "lorex", "annke",
+                  "foscam", "milesight", "hilook", "shenzhen tvt", "provision", "jovision", "hipcam")
+CAMERA_WORDS = ("hikvision", "dahua", "dvr", "nvr", "ipcam", "ip camera", "camera", "web service", "netsurveillance",
+                "xmeye", "onvif")
+ROUTER_VENDORS = ("tp-link", "tplink", "huawei technologies", "zte", "mikrotik", "routerboard", "ubiquiti", "cisco",
+                  "netgear", "d-link", "tenda", "mercusys", "aruba", "ruckus", "fortinet", "sagemcom", "arris",
+                  "technicolor", "askey", "mitrastar", "fiberhome", "cambium", "linksys", "asustek", "juniper",
+                  "zyxel", "totolink", "cudy", "nokia")
+PHONE_VENDORS = ("xiaomi", "oppo", "vivo mobile", "motorola", "huawei device", "honor device", "realme",
+                 "oneplus", "samsung electronics", "google")
+
+
+def classify_reason(h: HostResult, gateway: str, printer_ports: list[int]) -> tuple[str, str]:
+    """Devuelve (tipo, por qué). El "por qué" es la pista concreta que se usó."""
     v = (h.vendor or "").lower()
     d = (h.snmp_descr or "").lower() + " " + " ".join(str(x).lower() for x in h.services.values())
+    op = set(h.open_ports)
+    vend = h.vendor.split(",")[0].strip() if h.vendor else ""
     if h.is_self:
-        return "Este equipo"
+        return "Este equipo", "Es esta computadora"
     if h.ip == gateway:
-        return "Router / Gateway"
+        return "Router / Gateway", "Es la puerta de enlace de la red"
     pp = [p for p in h.open_ports if p in printer_ports]
-    if 9100 in h.open_ports or (any(w in d for w in PRINTER_WORDS) and pp):
-        return "Impresora (red RAW)" if 9100 in h.open_ports else "Impresora"
+    if 9100 in op:
+        return "Impresora (red RAW)", "Puerto 9100 abierto (impresión directa)"
+    if any(w in d for w in PRINTER_WORDS) and pp:
+        return "Impresora", f"Puerto {pp[0]} de impresión y se identifica como impresora"
     if any(w in d for w in ("printer", "jetdirect", "laserjet", "impresora")):
-        return "Impresora"
+        return "Impresora", "Se identifica como impresora (SNMP / web)"
     if pp and any(pv in v for pv in PRINTER_VENDORS):
-        return "Impresora"
+        return "Impresora", f"Puerto {pp[0]} de impresión · fabricante {vend}"
+    cam = [CAMERA_PORTS[p] for p in sorted(op) if p in CAMERA_PORTS]
+    if any(cv in v for cv in CAMERA_VENDORS):
+        return "Cámara / DVR", f"Fabricante {vend}" + (f" · puerto {cam[0]}" if cam else "")
+    if cam and (554 in op or 37777 in op or 34567 in op or any(w in d for w in CAMERA_WORDS)):
+        return "Cámara / DVR", f"Puerto {cam[0]}"
+    if any(w in d for w in CAMERA_WORDS) and (80 in op or 443 in op):
+        return "Cámara / DVR", "Su página web es de cámara / DVR"
     if pp:
-        return "Posible impresora"
+        return "Posible impresora", f"Puerto {pp[0]} de impresión abierto"
     if any(pv in v for pv in PRINTER_VENDORS[:20]):
-        return "Posible impresora"
-    if 3389 in h.open_ports or 445 in h.open_ports or 139 in h.open_ports:
-        return "Computadora (Windows)"
-    if 22 in h.open_ports and 445 not in h.open_ports:
-        return "Equipo con SSH"
-    if any(x in v for x in ("apple",)):
-        return "Dispositivo Apple"
+        return "Posible impresora", f"Fabricante {vend}"
+    win = [p for p in (3389, 445, 139, 135) if p in op]
+    if win:
+        names = {3389: "escritorio remoto", 445: "archivos de Windows", 139: "NetBIOS", 135: "RPC de Windows"}
+        return "Computadora (Windows)", f"Puerto {win[0]} ({names[win[0]]})"
+    if any(rv in v for rv in ROUTER_VENDORS) and (op & {53, 80, 443, 8080}):
+        return "Router / Access point", f"Fabricante {vend} con página de configuración"
+    if 53 in op:
+        return "Router / DNS", "Responde como servidor DNS (puerto 53)"
+    if op & {8008, 8009}:
+        return "TV / Chromecast", "Puertos de Chromecast (8008/8009)"
+    if 3001 in op and "lg" in v:
+        return "TV LG", "Puerto 3001 (webOS)"
+    if 8002 in op and "samsung" in v:
+        return "TV Samsung", "Puerto 8002 (Smart TV)"
+    if 22 in op:
+        return "Equipo con SSH", "Puerto 22 (SSH): servidor, NAS o equipo Linux"
+    if "apple" in v:
+        return "Dispositivo Apple", "Fabricante Apple (iPhone, iPad o Mac)"
+    if any(pv in v for pv in PHONE_VENDORS):
+        return "Celular / tablet", f"Fabricante {vend}"
+    if "aleatoria" in v or "local" in v:
+        return "Celular / portátil", "Usa MAC privada (típico de celulares y laptops)"
+    if any(rv in v for rv in ROUTER_VENDORS):
+        return "Equipo de red", f"Fabricante {vend}"
     if h.alive:
-        return "Dispositivo"
-    return ""
+        return "Dispositivo", "Responde, pero no ofrece servicios que lo identifiquen"
+    return "", ""
+
+
+def classify(h: HostResult, gateway: str, printer_ports: list[int]) -> str:
+    return classify_reason(h, gateway, printer_ports)[0]
 
 
 def _local_networks() -> list[ipaddress.IPv4Network]:
@@ -143,7 +196,7 @@ def scan(ctx, targets: list[str], ports: list[int] | None = None, identify: bool
     # Fase 3: TCP
     jobs = []
     for ip, h in results.items():
-        plist = tcp_ports if h.alive else [p for p in tcp_ports if p in KEY_PORTS]
+        plist = sorted(set(tcp_ports) | set(IDENT_PORTS)) if h.alive else [p for p in tcp_ports if p in KEY_PORTS]
         jobs.extend((ip, p) for p in plist)
     ctx.progress(36, f"Comprobando {len(jobs)} puertos TCP…")
     done = 0
@@ -227,7 +280,7 @@ def scan(ctx, targets: list[str], ports: list[int] | None = None, identify: bool
     # ICMP, TCP ni ARP; fuera de la red local no se puede confirmar ("Sin respuesta").
     reserved = {r["ip"]: r["name"] for r in get_db().query("SELECT ip, name FROM printers")}
     for h in results.values():
-        h.dev_type = classify(h, gateway, printer_ports)
+        h.dev_type, h.reason = classify_reason(h, gateway, printer_ports)
         h.installed_as = reserved.get(h.ip, "")
         if h.alive:
             h.status = "En uso"
@@ -235,9 +288,11 @@ def scan(ctx, targets: list[str], ports: list[int] | None = None, identify: bool
         elif h.ip in reserved:
             h.status = "Reservada"
             h.dev_type = f"Impresora {reserved[h.ip]} (apagada o desconectada)"
+            h.reason = "Instalada en este equipo con esta IP, pero no responde"
         elif h.ip == gateway:
             h.status = "En uso"
             h.dev_type = "Router / Gateway"
+            h.reason = "Es la puerta de enlace de la red"
         elif any(ipaddress.IPv4Address(h.ip) in n for n in local_nets):
             h.status = "Libre"
         else:
