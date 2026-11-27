@@ -63,6 +63,17 @@ def identify_ticket(ip: str, port: int = 9100) -> bytes:
     ])
 
 
+def self_test_command() -> bytes:
+    """Autotest de la propia impresora (su hoja de configuración, no la página de Windows).
+
+    ESC/POS «GS ( A pL pH n m» con m=2 (impresión del estado de la impresora). En Epson TM y en
+    muchos clones imprime la hoja de autotest con la configuración (y en los modelos con red, la
+    IP). Tras imprimirla la impresora se reinicia sola. Si un modelo no admite el comando no
+    imprime nada: entonces se saca a mano manteniendo FEED al encenderla.
+    """
+    return INIT + GS + b"(A" + bytes([2, 0, 2, 2])
+
+
 @dataclass
 class EscPosStatus:
     responded: bool = False

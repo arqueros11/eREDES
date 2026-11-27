@@ -1,4 +1,8 @@
-"""PC nueva: buscar → identificar → instalar todas las impresoras del local de una vez."""
+"""PC nueva: buscar → identificar → nombrar e instalar las impresoras del local.
+
+Cada fila tiene su botón Instalar: nada se crea sin un nombre escrito por el técnico, y las
+impresoras que ya existen en este equipo no se tocan.
+"""
 from __future__ import annotations
 
 import ipaddress
@@ -6,7 +10,7 @@ import ipaddress
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QHBoxLayout, QHeaderView, QLabel,
-                               QLineEdit, QTableWidget, QTableWidgetItem, QWidget)
+                               QLineEdit, QMenu, QTableWidget, QTableWidgetItem, QWidget)
 
 from app.core.platform_info import IS_WINDOWS, is_admin
 from app.core.tasks import run_task
@@ -17,7 +21,8 @@ from ..bus import bus, notify
 from ..widgets import Card, TaskPanel, button, confirm, info_dialog
 from .base import BasePage
 
-COLS = ["", "IP", "Impresora", "Estado", "Nombre", "Controlador"]
+COLS = ["", "Impresora", "Estado", "Nombre", "Controlador", ""]
+C_CHK, C_DEV, C_ST, C_NAME, C_DRV, C_ACT = range(6)
 
 
 def _load_context(ctx):
@@ -101,7 +106,6 @@ class SetupPage(BasePage):
         card = Card()
         head = QHBoxLayout()
         self.all_chk = QCheckBox("Todas")
-        self.all_chk.setTristate(False)
         self.all_chk.clicked.connect(self._toggle_all)
         head.addWidget(self.all_chk)
         head.addSpacing(14)
@@ -113,7 +117,7 @@ class SetupPage(BasePage):
         lbd.setObjectName("Muted")
         head.addWidget(lbd)
         self.drv_all = QComboBox()
-        self.drv_all.setMinimumWidth(260)
+        self.drv_all.setMinimumWidth(240)
         self.drv_all.addItem("Cargando…", None)
         self.drv_all.activated.connect(self._apply_driver_all)
         head.addWidget(self.drv_all)
@@ -122,18 +126,20 @@ class SetupPage(BasePage):
         t = QTableWidget(0, len(COLS))
         t.setHorizontalHeaderLabels(COLS)
         t.verticalHeader().setVisible(False)
-        t.verticalHeader().setDefaultSectionSize(54)
+        t.verticalHeader().setDefaultSectionSize(64)
         t.setShowGrid(False)
         t.setAlternatingRowColors(True)
         t.setSortingEnabled(False)
+        t.setWordWrap(True)
         t.setEditTriggers(QAbstractItemView.NoEditTriggers)
         t.setSelectionMode(QAbstractItemView.NoSelection)
         t.setFocusPolicy(Qt.NoFocus)
         hh = t.horizontalHeader()
         hh.setHighlightSections(False)
         hh.setSectionResizeMode(QHeaderView.Interactive)
-        hh.setSectionResizeMode(2, QHeaderView.Stretch)
-        for c, w in ((0, 48), (1, 150), (3, 230), (4, 210), (5, 270)):
+        hh.setSectionResizeMode(C_DEV, QHeaderView.Stretch)
+        hh.setMinimumSectionSize(40)
+        for c, w in ((C_CHK, 44), (C_ST, 180), (C_NAME, 170), (C_DRV, 210), (C_ACT, 262)):
             t.setColumnWidth(c, w)
         self.table = t
         card.add(t, 1)
@@ -146,16 +152,16 @@ class SetupPage(BasePage):
         card.add(self.empty, 1)
         self.root.addWidget(card, 1)
 
-        # ---- acciones
+        # ---- acciones en lote (sobre las filas marcadas)
         acts = QHBoxLayout()
         acts.setSpacing(10)
         self.ident_btn = button("Imprimir número", "", "mdi6.numeric", self.identify,
                                 "Imprime en cada impresora marcada su número de IP en grande")
-        self.install_btn = button("Instalar", "Primary", "mdi6.check-all", self.install,
+        self.install_btn = button("Instalar marcadas", "Primary", "mdi6.check-all", self.install_checked,
                                   "Instala las impresoras marcadas y saca un ticket de prueba en cada una")
         for b in (self.ident_btn, self.install_btn):
             b.setMinimumHeight(48)
-            b.setMinimumWidth(b.sizeHint().width() + 20)
+            b.setMinimumWidth(b.sizeHint().width() + 30)
         acts.addWidget(self.ident_btn)
         acts.addStretch(1)
         acts.addWidget(self.install_btn)
@@ -188,7 +194,8 @@ class SetupPage(BasePage):
         for d in self.drivers:
             self.drv_all.addItem(d.name, d)
         for r in self.rows:
-            self._fill_driver_combo(r)
+            if not r["locked"]:
+                self._fill_driver_combo(r)
 
     def _set_step(self, i: int):
         self._step = i
@@ -199,21 +206,36 @@ class SetupPage(BasePage):
         self.find_btn.setEnabled(True)
         self._update_buttons()
 
+    def _open_rows(self) -> list[dict]:
+        return [r for r in self.rows if not r["locked"]]
+
     def _checked(self) -> list[dict]:
-        return [r for r in self.rows if r["chk"].isChecked()]
+        return [r for r in self._open_rows() if r["chk"].isChecked()]
 
     def _update_buttons(self):
         n = len(self._checked())
         busy = self.task.busy
         self.ident_btn.setEnabled(n > 0 and not busy)
         self.install_btn.setEnabled(n > 0 and not busy)
-        self.install_btn.setText(f"Instalar {n}" if n else "Instalar")
-        self.all_chk.setChecked(bool(self.rows) and n == len(self.rows))
+        self.install_btn.setText(f"Instalar marcadas ({n})" if n else "Instalar marcadas")
+        for r in self.rows:
+            if not r["locked"]:
+                r["install"].setEnabled(not busy)
+            r["test"].setEnabled(not busy)
+        opens = self._open_rows()
+        self.all_chk.setEnabled(bool(opens))
+        self.all_chk.setChecked(bool(opens) and n == len(opens))
 
     def _toggle_all(self, on: bool):
-        for r in self.rows:
+        for r in self._open_rows():
             r["chk"].setChecked(on)
         self._update_buttons()
+
+    def _busy_msg(self) -> bool:
+        if self.task.busy:
+            notify("info", "Espere a que termine la operación en curso")
+            return True
+        return False
 
     # ------------------------------------------------------------ 1. buscar
     def find(self):
@@ -243,7 +265,7 @@ class SetupPage(BasePage):
         if printers:
             self._set_step(1)
             notify("ok", f"{len(printers)} impresoras encontradas",
-                   "Pulse «Imprimir número» para saber cuál es cuál")
+                   "Use «Prueba» para saber cuál es cuál, escriba el nombre y pulse Instalar")
         self._update_buttons()
 
     def _add_row(self, c):
@@ -252,46 +274,91 @@ class SetupPage(BasePage):
         t = self.table
         r = t.rowCount()
         t.insertRow(r)
+
         chk = QCheckBox()
-        chk.setChecked(not c.installed_as)
         chk.stateChanged.connect(lambda _s: self._update_buttons())
         holder = QWidget()
         hl = QHBoxLayout(holder)
         hl.setContentsMargins(0, 0, 0, 0)
         hl.setAlignment(Qt.AlignCenter)
         hl.addWidget(chk)
-        t.setCellWidget(r, 0, holder)
+        t.setCellWidget(r, C_CHK, holder)
 
-        ip_it = QTableWidgetItem(c.ip)
-        f = ip_it.font()
-        f.setBold(True)
-        f.setPointSize(f.pointSize() + 2)
-        ip_it.setFont(f)
-        t.setItem(r, 1, ip_it)
-        desc = c.label + (f"  ·  puerto {c.port}" if c.port != 9100 else "")
-        d_it = QTableWidgetItem(desc)
-        d_it.setToolTip("\n".join(x for x in (c.vendor, c.model, c.hostname, c.mac) if x))
-        t.setItem(r, 2, d_it)
+        dev = QLabel(f"<span style='font-size:17px; font-weight:700'>{c.ip}</span><br>"
+                     f"<span style='color:{pal.muted}'>{c.label}"
+                     + (f" · puerto {c.port}" if c.port != 9100 else "") + "</span>")
+        dev.setContentsMargins(6, 0, 6, 0)
+        dev.setToolTip("\n".join(x for x in (c.vendor, c.model, c.hostname, c.mac) if x))
+        t.setCellWidget(r, C_DEV, dev)
         st = QTableWidgetItem("")
-        t.setItem(r, 3, st)
+        t.setItem(r, C_ST, st)
 
         name = QComboBox()
         name.setEditable(True)
         name.addItems([""] + COMMON_NAMES)
         name.setCurrentIndex(0)
-        name.lineEdit().setPlaceholderText(f"IMPRESORA {c.last_octet}")
-        if c.installed_as:
-            name.setEditText(c.installed_as)
-        t.setCellWidget(r, 4, name)
+        name.lineEdit().setPlaceholderText("Nombre")
+        name.setMinimumHeight(40)
+        t.setCellWidget(r, C_NAME, self._pad(name))
         drv = QComboBox()
-        t.setCellWidget(r, 5, drv)
-        row = {"c": c, "chk": chk, "name": name, "drv": drv, "status": st}
+        drv.setMinimumHeight(40)
+        t.setCellWidget(r, C_DRV, self._pad(drv))
+
+        act = QWidget()
+        al = QHBoxLayout(act)
+        al.setContentsMargins(6, 0, 6, 0)
+        al.setSpacing(8)
+        test = button("Prueba", "", "mdi6.printer-eye", None, "Identificar la impresora o imprimir su autotest")
+        menu = QMenu(test)
+        menu.addAction("Imprimir número de IP", lambda: self._identify_rows([row]))
+        menu.addAction("Autotest de la ticketera (su configuración)", lambda: self._self_test(row))
+        test.clicked.connect(lambda: menu.exec(test.mapToGlobal(test.rect().bottomLeft())))
+        install = button("Instalar", "Primary", "mdi6.check", lambda: self._install_rows([row]))
+        for b in (test, install):
+            b.setMinimumHeight(40)
+        install.setMinimumWidth(install.fontMetrics().horizontalAdvance("Instalada") + 56)
+        al.addWidget(test)
+        al.addWidget(install)
+        t.setCellWidget(r, C_ACT, act)
+
+        row = {"c": c, "chk": chk, "name": name, "drv": drv, "status": st, "test": test, "install": install,
+               "locked": False}
         self.rows.append(row)
         self._fill_driver_combo(row)
+        name.lineEdit().textChanged.connect(lambda _t: self._mark_name(row, False))
+        name.lineEdit().returnPressed.connect(lambda: self._install_rows([row]))
         if c.installed_as:
-            self._status(row, f"Ya instalada · {c.installed_as}", pal.primary)
+            self._lock(row, c.installed_as, f"Ya instalada · {c.installed_as}", pal.primary)
         else:
             self._status(row, "Nueva", pal.success)
+
+    @staticmethod
+    def _pad(w: QWidget) -> QWidget:
+        box = QWidget()
+        lay = QHBoxLayout(box)
+        lay.setContentsMargins(4, 0, 4, 0)
+        lay.addWidget(w)
+        return box
+
+    def _lock(self, row, name: str, status: str, color: str):
+        """Fila terminada o que ya existía: no se puede volver a tocar desde aquí."""
+        row["locked"] = True
+        row["chk"].setChecked(False)
+        row["chk"].setEnabled(False)
+        row["name"].setEditText(name)
+        row["name"].setEnabled(False)
+        row["drv"].setEnabled(False)
+        row["install"].setEnabled(False)
+        row["install"].setText("Instalada")
+        self._status(row, status, color)
+
+    def _mark_name(self, row, bad: bool):
+        le = row["name"].lineEdit()
+        le.setProperty("invalid", bad)
+        row["name"].setProperty("invalid", bad)
+        for w in (le, row["name"]):
+            w.style().unpolish(w)
+            w.style().polish(w)
 
     def _fill_driver_combo(self, row):
         from app.printers.batch import default_driver
@@ -302,13 +369,14 @@ class SetupPage(BasePage):
             return
         for d in self.drivers:
             cb.addItem(d.name, d)
+            cb.setItemData(cb.count() - 1, d.name, Qt.ToolTipRole)
         best = default_driver(self.drivers, row["c"].vendor, row["c"].model)
         if best is not None:
             cb.setCurrentIndex(self.drivers.index(best))
 
     def _apply_driver_all(self, _i: int):
         d = self.drv_all.currentData()
-        for r in self.rows:
+        for r in self._open_rows():
             if d is None:
                 self._fill_driver_combo(r)
             else:
@@ -326,8 +394,10 @@ class SetupPage(BasePage):
 
     # ------------------------------------------------------------ 2. identificar
     def identify(self):
-        rows = self._checked()
-        if not rows:
+        self._identify_rows(self._checked())
+
+    def _identify_rows(self, rows):
+        if not rows or self._busy_msg():
             return
         from app.printers.batch import identify
         pal = theme.current()
@@ -341,22 +411,46 @@ class SetupPage(BasePage):
                     continue
                 if good:
                     ok += 1
-                    self._status(r, f"Número {r['c'].last_octet} impreso", pal.success)
+                    if not r["locked"]:
+                        self._status(r, f"Número {r['c'].last_octet} impreso", pal.success)
                 else:
                     self._status(r, f"No imprimió: {msg}", pal.danger)
-            self._set_step(2)
+            if self._step < 2:
+                self._set_step(2)
             notify("ok" if ok == len(results) else "warning", f"Número impreso en {ok} de {len(results)}",
                    "Pregunte qué número salió en cada impresora y escriba su nombre")
-            first = next((r for r in rows if not r["name"].currentText().strip()), None)
+            first = next((r for r in rows if not r["locked"] and not r["name"].currentText().strip()), None)
             if first:
                 first["name"].setFocus()
         self.task.run(identify, [(r["c"].ip, r["c"].port) for r in rows], on_result=done)
         self._update_buttons()
 
+    def _self_test(self, row):
+        if self._busy_msg():
+            return
+        from app.printers.batch import self_test
+        pal = theme.current()
+
+        def done(res):
+            ok, msg = res
+            if ok:
+                if not row["locked"]:
+                    self._status(row, "Autotest enviado", pal.success)
+                notify("ok", f"Autotest enviado a {row['c'].ip}",
+                       "Sale la hoja de configuración de la ticketera (IP de LAN y Wi-Fi según modelo). "
+                       "Si no sale nada: apáguela y enciéndala manteniendo FEED.")
+            else:
+                self._status(row, f"Autotest: {msg}", pal.danger)
+        self.task.run(self_test, row["c"].ip, row["c"].port, on_result=done, cancellable=False)
+        self._update_buttons()
+
     # ------------------------------------------------------------ 3. instalar
-    def install(self):
-        rows = self._checked()
-        if not rows:
+    def install_checked(self):
+        self._install_rows(self._checked())
+
+    def _install_rows(self, rows):
+        rows = [r for r in rows if not r["locked"]]
+        if not rows or self._busy_msg():
             return
         if IS_WINDOWS and not is_admin():
             info_dialog(self, "Hace falta administrador",
@@ -364,55 +458,64 @@ class SetupPage(BasePage):
                         kind="warning")
             return
         from app.printers.batch import InstallJob, check_names, clean_name, driver_ref
-        jobs, missing = [], []
+        jobs, unnamed = [], []
         for r in rows:
-            name = clean_name(r["name"].currentText() or r["name"].lineEdit().placeholderText())
+            raw = r["name"].currentText().strip()
+            if not raw:
+                unnamed.append(r)
+                self._mark_name(r, True)
+                continue
             d = r["drv"].currentData()
             if d is None:
-                missing.append(r["c"].ip)
-                continue
-            jobs.append(InstallJob(name, driver_ref(d), r["c"].ip, r["c"].port))
-        if missing:
-            notify("error", "Falta el controlador", ", ".join(missing))
+                notify("error", "Falta el controlador", r["c"].ip)
+                return
+            jobs.append(InstallJob(clean_name(raw), driver_ref(d), r["c"].ip, r["c"].port))
+        if unnamed:
+            unnamed[0]["name"].setFocus()
+            notify("warning", "Escriba el nombre", "Ponga un nombre a " +
+                   ", ".join(r["c"].ip for r in unnamed) + " antes de instalar")
             return
         errs = check_names([j.name for j in jobs], self.existing)
         if errs:
             info_dialog(self, "Revise los nombres", "\n".join(errs), kind="error")
             return
-        listing = "<br>".join(f"<b>{j.name}</b> → {j.ip}" for j in jobs)
-        if not confirm(self, f"Instalar {len(jobs)} impresoras",
-                       f"{listing}<br><br>Cada una sacará un ticket de prueba con su nombre.",
-                       ok_text=f"Instalar {len(jobs)}"):
-            return
+        if len(jobs) > 1:
+            listing = "<br>".join(f"<b>{j.name}</b> → {j.ip}" for j in jobs)
+            if not confirm(self, f"Instalar {len(jobs)} impresoras",
+                           f"{listing}<br><br>Cada una sacará un ticket de prueba con su nombre.",
+                           ok_text=f"Instalar {len(jobs)}"):
+                return
         from app.printers.batch import install_batch
         pal = theme.current()
         by_ip = {r["c"].ip: r for r in rows}
         for r in rows:
-            self._status(r, "En cola…", pal.muted)
+            self._status(r, "Instalando…" if len(rows) == 1 else "En cola…", pal.muted)
 
         def partial(item):
             _i, o = item
             r = by_ip.get(o.ip)
             if not r:
                 return
-            color = pal.success if (o.created and o.printed) else (pal.warning if o.created else pal.danger)
-            self._status(r, ("✓ " if o.created else "✗ ") + o.message, color)
             if o.created:
-                r["chk"].setChecked(False)
-                r["name"].setEditText(o.name)
+                self._lock(r, o.name, "✓ " + o.message, pal.success if o.printed else pal.warning)
+            else:
+                self._status(r, "✗ " + o.message, pal.danger)
 
         def done(results):
             created = [o for o in results if o.created]
             self.existing += [o.name for o in created]
             bus.data_changed.emit("printers")
             bus.data_changed.emit("history")
-            if len(created) == len(results):
-                self._set_step(3)
-                notify("ok", f"{len(created)} impresoras instaladas", "Confirme que salió un ticket en cada una")
+            if created and len(created) == len(results):
+                if not self._open_rows():
+                    self._set_step(3)
+                notify("ok", ", ".join(o.name for o in created) + (" instalada" if len(created) == 1
+                                                                    else " instaladas"),
+                       "Confirme que salió el ticket de prueba")
             else:
                 bad = [o for o in results if not o.created]
                 info_dialog(self, f"{len(created)} de {len(results)} instaladas",
-                            "Estas no se pudieron instalar:",
+                            "No se pudo instalar:",
                             "\n".join(f"{o.name} ({o.ip}): {o.message}" for o in bad), "warning")
         self.task.run(install_batch, jobs, on_partial=partial, on_result=done)
         self._update_buttons()

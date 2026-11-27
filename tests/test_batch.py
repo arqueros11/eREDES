@@ -194,3 +194,15 @@ def test_install_batch_windows_generic(ctx, tmp_path):
             PrinterManager().remove(n)
         e1.stop()
         e2.stop()
+
+
+def test_self_test_command():
+    from app.printers import escpos
+    cmd = escpos.self_test_command()
+    assert cmd.endswith(b"\x1d(A\x02\x00\x02\x02")
+
+
+def test_self_test_rejects_non_raw_port(ctx):
+    from app.printers import batch
+    ok, msg = batch.self_test(ctx, "192.168.1.250", 515)
+    assert not ok and "9100" in msg

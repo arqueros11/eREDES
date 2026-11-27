@@ -181,6 +181,16 @@ def identify(ctx, items: list[tuple[str, int]]) -> list[tuple[str, bool, str]]:
     return out
 
 
+def self_test(ctx, ip: str, port: int) -> tuple[bool, str]:
+    """Pide a la impresora que imprima su propia hoja de configuración (autotest)."""
+    if port not in RAW_PORTS:
+        return False, f"Puerto {port}: el autotest por red solo se envía por 9100"
+    ctx.progress(30, f"Enviando autotest a {ip}…")
+    ok, msg = escpos.send_raw(ip, port, escpos.self_test_command())
+    ctx.progress(100, "Listo")
+    return ok, msg
+
+
 @dataclass
 class InstallJob:
     name: str

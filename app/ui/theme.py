@@ -132,7 +132,7 @@ QLineEdit, QSpinBox, QComboBox, QPlainTextEdit, QTextEdit, QDateTimeEdit {{
     selection-background-color: {p.primary}; selection-color: white; }}
 QLineEdit, QSpinBox, QComboBox {{ min-height: 24px; }}
 QLineEdit:focus, QSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus, QTextEdit:focus {{ border: 2px solid {"#7FB6FF" if p.name == "light" else "#0A84FF"}; padding: 7px 9px; }}
-QLineEdit[invalid="true"] {{ border: 1px solid {p.danger}; }}
+QLineEdit[invalid="true"], QComboBox[invalid="true"] {{ border: 2px solid {p.danger}; }}
 QLineEdit:disabled, QComboBox:disabled {{ color: {p.muted}; }}
 QComboBox::drop-down {{ border: none; width: 24px; }}
 QComboBox QAbstractItemView {{ background: {p.surface}; border: 1px solid {p.border}; selection-background-color: {p.selection};
