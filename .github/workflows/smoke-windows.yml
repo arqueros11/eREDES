@@ -1,0 +1,53 @@
+# Prueba de arranque en Windows real: descarga la última versión publicada (o la recién compilada),
+# la abre como lo haría un técnico y recoge log, eventos de error de Windows y una captura.
+name: smoke-windows
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "release (última publicada) o build (compilar este commit)"
+        default: release
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ inputs.source == 'build' }}
+      - uses: actions/setup-python@v5
+        if: ${{ inputs.source == 'build' }}
+        with: { python-version: "3.12" }
+      - name: Compilar este commit
+        if: ${{ inputs.source == 'build' }}
+        shell: cmd
+        run: |
+          pip install -r requirements.txt
+          call build_windows.bat
+          powershell -NoProfile -Command "Expand-Archive dist\eREDES-Windows.zip C:\eREDES -Force"
+      - name: Descargar última versión publicada
+        if: ${{ inputs.source != 'build' }}
+        shell: pwsh
+        run: |
+          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/latest/download/eREDES-Windows.zip" -OutFile e.zip
+          Expand-Archive e.zip C:\eREDES -Force
+      - name: Abrir eREDES.exe
+        shell: pwsh
+        run: |
+          $env:EREDES_SNAP_DELAY = "9000"
+          $p = Start-Process "C:\eREDES\eREDES\eREDES.exe" -ArgumentList "--screenshot","C:\eREDES\captura.png" -PassThru
+          $ok = $p.WaitForExit(90000)
+          if (-not $ok) { "SIGUE ABIERTA tras 90 s (no terminó)"; Stop-Process $p -Force } else { "Código de salida: $($p.ExitCode)" }
+          "---- archivos ----"
+          Get-ChildItem C:\eREDES\eREDES | Select-Object Name,Length | Format-Table -AutoSize | Out-String
+          "---- logs ----"
+          Get-ChildItem C:\eREDES\eREDES\logs -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.Name)"; Get-Content $_.FullName -Tail 120 }
+          "---- eventos de Windows ----"
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProviderName -in 'Application Error','Windows Error Reporting','.NET Runtime','SideBySide' } |
+            Format-List TimeCreated,ProviderName,Message | Out-String -Width 300
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-windows
+          path: |
+            C:\eREDES\captura.png
+            C:\eREDES\eREDES\logs\
