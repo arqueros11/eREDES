@@ -5,7 +5,8 @@ OPCION A (recomendada, sin instalar nada): descargar desde GitHub
   1. Entrar en la pagina del repositorio de eREDES en GitHub > "Releases".
   2. Descargar  eREDES-Windows.zip  de la ultima version (ERMA.V...).
   3. Descomprimir (por ejemplo en C:\eREDES).
-  4. Doble clic en  eREDES.exe  (clic derecho > Enviar a > Escritorio para el acceso directo).
+  4. Doble clic en  eREDES.exe  (carpeta eREDES). La primera vez crea solo el
+     icono "eREDES" en el Escritorio: desde entonces abralo desde ahi.
   5. Para versiones nuevas: boton "Actualizar" abajo a la izquierda dentro de la app.
 
 OPCION B (compilar en el PC con este codigo)

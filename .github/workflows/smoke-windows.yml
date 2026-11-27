@@ -46,6 +46,11 @@ jobs:
           $p = Start-Process "C:\eREDES\eREDES\eREDES.exe" -ArgumentList "--screenshot","C:\eREDES\captura.png","--page","${{ inputs.page }}" -PassThru
           $ok = $p.WaitForExit(90000)
           if (-not $ok) { "SIGUE ABIERTA tras 90 s (no terminó)"; Stop-Process $p -Force } else { "Código de salida: $($p.ExitCode)" }
+          "---- acceso directo del Escritorio ----"
+          foreach ($d in [Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory')) {
+            $l = Join-Path $d 'eREDES.lnk'
+            if (Test-Path $l) { $s=(New-Object -ComObject WScript.Shell).CreateShortcut($l); "ACCESO DIRECTO OK: $l -> $($s.TargetPath)" }
+          }
           "---- archivos ----"
           Get-ChildItem C:\eREDES\eREDES | Select-Object Name,Length | Format-Table -AutoSize | Out-String
           "---- logs ----"

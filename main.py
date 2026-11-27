@@ -78,6 +78,9 @@ def main() -> int:
     from app.core.tasks import run_task
     run_task(lambda _c: DriverLibrary().sync(),  # la ventana aparece al instante; la biblioteca se lee aparte
              on_error=lambda m: log.error("No se pudo sincronizar la biblioteca de drivers: %s", m))
+    from app.core.shortcut import ensure_desktop_shortcut
+    run_task(lambda _c: ensure_desktop_shortcut(),   # icono "eREDES" en el Escritorio de Windows
+             on_error=lambda m: log.warning("Acceso directo: %s", m))
     if args.page != "printers":
         w.navigate(args.page)
     if args.screenshot:
