@@ -114,6 +114,7 @@ class SetupPage(BasePage):
         head.addWidget(lbd)
         self.drv_all = QComboBox()
         self.drv_all.setMinimumWidth(260)
+        self.drv_all.addItem("Cargando…", None)
         self.drv_all.activated.connect(self._apply_driver_all)
         head.addWidget(self.drv_all)
         card.add(head)
