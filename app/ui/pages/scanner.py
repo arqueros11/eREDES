@@ -15,7 +15,7 @@ from app.core.validation import ValidationError, parse_target_range, validate_ip
 
 from .. import theme
 from ..bus import bus, notify
-from ..widgets import Card, TaskPanel, button, fill_table, info_dialog, make_table, selected_data
+from ..widgets import sort_table, Card, TaskPanel, button, fill_table, info_dialog, make_table, selected_data
 from .base import BasePage
 
 FILTERS = ("Todas", "En uso", "Libres", "Impresoras")
@@ -40,7 +40,7 @@ class ScannerPage(BasePage):
         for w, ph in ((self.ip_from, "192.168.1.1"), (self.ip_to, "192.168.1.254")):
             w.setPlaceholderText(ph)
             w.setMinimumHeight(46)
-            w.setMinimumWidth(190)
+            w.setMinimumWidth(130)
             w.returnPressed.connect(self.start_scan)
         lf, lt = QLabel("Desde"), QLabel("Hasta")
         for lb in (lf, lt):
@@ -96,7 +96,7 @@ class ScannerPage(BasePage):
         card.add(self.table, 1)
         acts = QHBoxLayout()
         acts.setSpacing(10)
-        self.b_main = button("Nueva impresora con esta IP", "Primary", "mdi6.printer-pos", self._primary_action)
+        self.b_main = button("Nueva impresora", "Primary", "mdi6.printer-pos", self._primary_action)
         self.b_diag = button("Diagnosticar", "", "mdi6.stethoscope", self._diagnose)
         self.b_web = button("Web", "", "mdi6.open-in-new", self._open_web)
         self.b_check = button("Confirmar libre", "", "mdi6.shield-check", self._check)
@@ -226,7 +226,7 @@ class ScannerPage(BasePage):
         def type_color(s):
             return pal.success if s.startswith("Impresora") else (pal.warning if s.startswith("Posible") else None)
         fill_table(self.table, rows, data=hosts, colors={1: lambda s: st_color.get(s), 2: type_color})
-        self.table.sortItems(0, Qt.AscendingOrder)
+        sort_table(self.table, 0)
         if any(h.status == "Sin respuesta" for h in hosts):
             self.summary.setText("Fuera de tu red no se puede confirmar si una IP está libre")
         elif counts[2]:
@@ -244,7 +244,8 @@ class ScannerPage(BasePage):
         used = bool(h and h.status == "En uso")
         free = bool(h and h.status in ("Libre", "Sin respuesta"))
         self.b_main.setEnabled(bool(h))
-        self.b_main.setText("Asignar a una impresora" if free else "Nueva impresora con esta IP")
+        self.b_main.setText("Asignar IP" if free else "Nueva impresora")
+        self.b_main.setToolTip("Asignar esta IP libre a una impresora" if free else "Crear impresora con esta IP")
         self.b_diag.setEnabled(used)
         self.b_web.setEnabled(used and any(p in h.open_ports for p in (80, 443, 8080)))
         self.b_check.setEnabled(free)

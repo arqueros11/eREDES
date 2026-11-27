@@ -111,7 +111,6 @@ class DiagnosticsPage(BasePage):
         rows = [[c.group, c.name, LABELS[c.status], c.detail] for c in res["checks"]]
         inv = {v: k for k, v in LABELS.items()}
         fill_table(self.table, rows, colors={2: lambda s: colors.get(inv.get(s, ""), None)})
-        self.table.setSortingEnabled(False)
         ov = res["overall"]
         self.overall.set(LABELS[ov].upper(), colors.get(ov, pal.muted))
         self.overall.show()

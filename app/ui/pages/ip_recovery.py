@@ -16,7 +16,7 @@ from app.core.validation import ValidationError, validate_ipv4, validate_netmask
 
 from .. import theme
 from ..bus import bus, notify
-from ..widgets import Badge, Banner, Card, TaskPanel, button, confirm, fill_table, make_table, selected_data
+from ..widgets import sort_table, Badge, Banner, Card, TaskPanel, button, confirm, fill_table, make_table, selected_data
 from .base import BasePage
 
 
@@ -258,7 +258,7 @@ class IpRecoveryPage(BasePage):
 
     def _render(self):
         fill_table(self.table, self.rows, data=[r[0] for r in self.rows])
-        self.table.sortItems(0, Qt.AscendingOrder)
+        sort_table(self.table, 0)
 
     def _to_change(self):
         ip = selected_data(self.table)

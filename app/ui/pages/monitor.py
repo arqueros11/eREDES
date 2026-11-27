@@ -1,13 +1,13 @@
 """Monitor del sistema en tiempo real (sin bloquear la interfaz)."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QHBoxLayout, QTabWidget, QVBoxLayout, QWidget
 
 from app.core.tasks import run_task
 
 from .. import theme
-from ..widgets import Card, KeyValue, Sparkline, StatCard, fill_table, make_table
+from ..widgets import sort_table, Card, KeyValue, Sparkline, StatCard, fill_table, make_table
 from .base import BasePage
 
 
@@ -106,11 +106,11 @@ class MonitorPage(BasePage):
         tab = self.tabs.currentIndex()  # solo se rellena la tabla visible (menos trabajo en la interfaz)
         if tab == 0:
             fill_table(self.t_cpu, [[p["name"], p["pid"], round(p["cpu"], 1), fmt_bytes(p["mem"])] for p in s.top_cpu])
-            self.t_cpu.sortItems(2, Qt.DescendingOrder)
+            sort_table(self.t_cpu, 2, True)
         elif tab == 1:
             fill_table(self.t_mem, [[p["name"], p["pid"], fmt_bytes(p["mem"]), round(p["mem_pct"], 1)]
                                     for p in s.top_mem])
-            self.t_mem.sortItems(3, Qt.DescendingOrder)
+            sort_table(self.t_mem, 3, True)
         elif tab == 2:
             fill_table(self.t_disk, [[x["device"], x["mount"], x["fs"], fmt_bytes(x["total"]), fmt_bytes(x["used"]),
                                   fmt_bytes(x["free"]), x["percent"]] for x in s.disks])

@@ -90,7 +90,7 @@ QToolTip {{ background: {p.surface2}; color: {p.text}; border: 1px solid {p.bord
 #UpdateButton {{ background: transparent; color: {p.primary}; border: 1px solid {p.border}; border-radius: 8px;
     padding: 6px 10px; font-size: 13px; font-weight: 600; }}
 #UpdateButton:hover {{ background: {p.sidebar_active}; }}
-#SidebarFooter {{ color: {p.sidebar_muted}; font-size: 11px; padding: 10px 18px; }}
+#SidebarFooter {{ color: {p.sidebar_muted}; font-size: 12px; font-weight: 600; padding: 2px; }}
 
 /* ---------- Topbar ---------- */
 #TopBar {{ background: {p.bg}; border-bottom: 1px solid {p.border}; }}

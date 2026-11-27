@@ -35,6 +35,8 @@ def button(text: str, kind: str = "", icon_name: str | None = None, on_click: Ca
     if tooltip:
         b.setToolTip(tooltip)
     b.setCursor(Qt.PointingHandCursor)
+    if text:
+        b.setMinimumWidth(b.sizeHint().width())   # el texto nunca se recorta
     return b
 
 
@@ -173,30 +175,25 @@ class Banner(QFrame):
         self.setVisible(bool(text))
 
 
-SORT_ROLE = Qt.UserRole + 1
-
-
-class _Item(QTableWidgetItem):
-    """Celda que ordena por una clave numérica cuando existe (IPs, números)."""
-
-    def __lt__(self, other):  # noqa: D105
-        a, b = self.data(SORT_ROLE), other.data(SORT_ROLE)
-        if a is not None and b is not None:
-            return a < b
-        return super().__lt__(other)
-
-
 def _sort_key(val):
+    """Clave de orden: números e IPs por valor numérico, el resto por texto."""
     if isinstance(val, (int, float)) and not isinstance(val, bool):
-        return float(val)
-    if isinstance(val, str) and val.count(".") == 3:
+        return (0, float(val), "")
+    if isinstance(val, str):
         parts = val.split(".")
-        if all(p.isdigit() and int(p) < 256 for p in parts):
-            return float(int.from_bytes(bytes(int(p) for p in parts), "big"))
-    return None
+        if len(parts) == 4 and all(p.isdigit() and int(p) < 256 for p in parts):
+            return (0, float(int.from_bytes(bytes(int(p) for p in parts), "big")), "")
+        try:
+            return (0, float(val.replace(",", ".").split()[0]), "")
+        except (ValueError, IndexError):
+            pass
+        return (1, 0.0, val.lower())
+    return (2, 0.0, "")
 
 
 def make_table(headers: list[str], stretch_col: int | None = None, selectable_rows: bool = True) -> QTableWidget:
+    """Tabla de solo lectura. La ordenación al pulsar la cabecera se hace en Python
+    (la ordenación nativa con comparadores en Python provoca cierres de Qt)."""
     t = QTableWidget(0, len(headers))
     t.setHorizontalHeaderLabels(headers)
     t.verticalHeader().setVisible(False)
@@ -207,29 +204,57 @@ def make_table(headers: list[str], stretch_col: int | None = None, selectable_ro
         t.setSelectionBehavior(QAbstractItemView.SelectRows)
         t.setSelectionMode(QAbstractItemView.SingleSelection)
     t.setWordWrap(False)
-    t.setSortingEnabled(True)
+    t.setSortingEnabled(False)
     h = t.horizontalHeader()
     h.setHighlightSections(False)
     h.setSectionResizeMode(QHeaderView.Interactive)
     h.setStretchLastSection(stretch_col is None)
     if stretch_col is not None:
         h.setSectionResizeMode(stretch_col, QHeaderView.Stretch)
+    h.setSectionsClickable(True)
+    h.setSortIndicatorShown(False)
+    h.sectionClicked.connect(lambda col, tt=t: _header_clicked(tt, col))
     t.verticalHeader().setDefaultSectionSize(40)
+    t._rows = []          # [(fila, dato)]
+    t._colors = None
+    t._sort = None        # (columna, descendente)
     return t
+
+
+def _header_clicked(t: QTableWidget, col: int) -> None:
+    desc = bool(t._sort and t._sort[0] == col and not t._sort[1])
+    sort_table(t, col, desc)
+
+
+def sort_table(t: QTableWidget, col: int, descending: bool = False) -> None:
+    t._sort = (col, descending)
+    h = t.horizontalHeader()
+    h.setSortIndicatorShown(True)
+    h.setSortIndicator(col, Qt.DescendingOrder if descending else Qt.AscendingOrder)
+    _render(t)
 
 
 def fill_table(t: QTableWidget, rows: list[list], colors: dict[int, Callable[[str], str | None]] | None = None,
                data: list | None = None, autosize: bool | None = None) -> None:
+    data = data if data is not None else [None] * len(rows)
+    t._rows = list(zip(rows, data))
+    t._colors = colors
+    _render(t, autosize)
+
+
+def _render(t: QTableWidget, autosize: bool | None = None) -> None:
+    rows = list(getattr(t, "_rows", []))
+    srt = getattr(t, "_sort", None)
+    if srt and rows:
+        col, desc = srt
+        rows.sort(key=lambda rd: _sort_key(rd[0][col] if col < len(rd[0]) else None), reverse=desc)
+    colors = getattr(t, "_colors", None)
     t.setUpdatesEnabled(False)
-    t.setSortingEnabled(False)
     t.setRowCount(0)
     t.setRowCount(len(rows))
-    for r, row in enumerate(rows):
+    for r, (row, datum) in enumerate(rows):
         for c, val in enumerate(row):
-            it = _Item("" if val is None else str(val))
-            key = _sort_key(val)
-            if key is not None:
-                it.setData(SORT_ROLE, key)
+            it = QTableWidgetItem("" if val is None else str(val))
             if colors and c in colors:
                 col = colors[c](str(val))
                 if col:
@@ -237,10 +262,9 @@ def fill_table(t: QTableWidget, rows: list[list], colors: dict[int, Callable[[st
                     f = it.font()
                     f.setBold(True)
                     it.setFont(f)
-            if c == 0 and data is not None:
-                it.setData(Qt.UserRole, data[r])
+            if c == 0 and datum is not None:
+                it.setData(Qt.UserRole, datum)
             t.setItem(r, c, it)
-    t.setSortingEnabled(True)
     # ajustar columnas solo la primera vez que hay datos (o si se pide): evita tirones al refrescar
     if autosize or (autosize is None and rows and not t.property("_sized")):
         t.resizeColumnsToContents()

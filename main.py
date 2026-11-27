@@ -20,6 +20,13 @@ def main() -> int:
 
     from app.core import paths
     paths.ensure_layout()
+    # Cierres inesperados (fallos nativos): quedan registrados en logs/crash.log
+    import faulthandler
+    try:
+        _crash = open(paths.logs_dir() / "crash.log", "a", encoding="utf-8")
+        faulthandler.enable(_crash)
+    except OSError:
+        pass
     from app.core.logging_setup import setup_logging
     setup_logging(args.debug)
     log = logging.getLogger("eredes")
@@ -29,6 +36,14 @@ def main() -> int:
     from PySide6.QtWidgets import QApplication
 
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    from PySide6.QtCore import QtMsgType, qInstallMessageHandler
+
+    def qt_messages(mode, _ctx, msg):  # mensajes internos de Qt -> log
+        if mode in (QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
+            log.error("Qt: %s", msg)
+        elif mode == QtMsgType.QtWarningMsg:
+            log.warning("Qt: %s", msg)
+    qInstallMessageHandler(qt_messages)
     app = QApplication(sys.argv)
     app.setApplicationName(paths.APP_NAME)
     app.setOrganizationName("eREDES")

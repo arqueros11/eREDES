@@ -53,14 +53,16 @@ class PrintersPage(BasePage):
 
         acts = QHBoxLayout()
         acts.setSpacing(10)
-        for text, ic, fn, kind in (("Imprimir prueba", "mdi6.printer-check", self.test_menu, "Primary"),
-                                   ("Editar", "mdi6.pencil-outline", self.edit, ""),
-                                   ("Diagnosticar", "mdi6.stethoscope", self.diagnose, ""),
-                                   ("Reiniciar cola", "mdi6.restore", self.restart_queue, ""),
-                                   ("Vaciar cola", "mdi6.broom", self.clear_queue, ""),
-                                   ("Eliminar", "mdi6.delete-outline", self.remove, "Danger")):
-            b = button(text, kind, ic, fn)
+        for text, tip, ic, fn, kind in (
+                ("Prueba", "Imprimir prueba", "mdi6.printer-check", self.test_menu, "Primary"),
+                ("Editar", "Editar impresora", "mdi6.pencil-outline", self.edit, ""),
+                ("Diagnóstico", "Diagnosticar", "mdi6.stethoscope", self.diagnose, ""),
+                ("Reiniciar", "Reiniciar cola de impresión", "mdi6.restore", self.restart_queue, ""),
+                ("Vaciar", "Vaciar cola de impresión", "mdi6.broom", self.clear_queue, ""),
+                ("Eliminar", "Eliminar impresora", "mdi6.delete-outline", self.remove, "Danger")):
+            b = button(text, kind, ic, fn, tip)
             b.setMinimumHeight(44)
+            b.setMinimumWidth(b.sizeHint().width())   # nunca recortar el texto
             acts.addWidget(b)
         acts.addStretch(1)
         self.root.addLayout(acts)
