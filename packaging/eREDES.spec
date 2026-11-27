@@ -60,8 +60,8 @@ if IS_MAC:
         info_plist={
             "CFBundleName": "eREDES",
             "CFBundleDisplayName": "eREDES",
-            "CFBundleShortVersionString": "1.0.2",
-            "CFBundleVersion": "1.0.2",
+            "CFBundleShortVersionString": "1.0.3",
+            "CFBundleVersion": "1.0.3",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
             "NSLocalNetworkUsageDescription": "eREDES escanea la red local para encontrar y configurar impresoras.",
