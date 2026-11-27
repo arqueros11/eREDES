@@ -299,6 +299,8 @@ class MainWindow(QMainWindow):
                 self._mark_update(info)
                 if manual:
                     self._offer_update(info)
+                elif config.get("auto_install_updates") and updater.can_self_update():
+                    self._auto_update(info)
                 else:
                     notify("info", f"Nueva versión {version_label(info.latest)} disponible",
                            "Pulse Actualizar (abajo a la izquierda).")
@@ -325,6 +327,22 @@ class MainWindow(QMainWindow):
         except (RuntimeError, TypeError):
             pass
         self.update_btn.clicked.connect(lambda: self._offer_update(info))
+
+    def _auto_update(self, info):
+        """Actualización automática al abrir: cuenta atrás de 10 s con opción «Más tarde»."""
+        from app.network import ip_recovery
+        if ip_recovery.active_sessions():
+            return  # nunca reiniciar con una IP temporal activa
+        from .widgets import CountdownDialog, UpdateDialog
+        cd = CountdownDialog(self, f"Actualizando a {version_label(info.latest)}",
+                             "eREDES se actualizará y se abrirá de nuevo.", seconds=10,
+                             ok_text="Actualizar ahora", cancel_text="Más tarde")
+        if not cd.exec():
+            notify("info", "Actualización pospuesta", "Pulse el botón azul de abajo cuando quiera.")
+            return
+        dlg = UpdateDialog(self, info)
+        if dlg.exec() and dlg.ok:
+            QApplication.quit()
 
     def _offer_update(self, info):
         from app.core import updater

@@ -774,3 +774,48 @@ class UpdateDialog(QDialog):
             self.accept()
         else:
             self.reject()
+
+
+class CountdownDialog(QDialog):
+    """Diálogo que se acepta solo al terminar la cuenta atrás (o con el botón principal)."""
+
+    def __init__(self, parent, title: str, text: str, seconds: int = 10, ok_text: str = "Aceptar",
+                 cancel_text: str = "Cancelar"):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setMinimumWidth(440)
+        self.left = seconds
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 22, 24, 20)
+        lay.setSpacing(14)
+        head = QHBoxLayout()
+        ic = QLabel()
+        ic.setPixmap(icons.pixmap("mdi6.download", theme.current().primary, 30))
+        head.addWidget(ic)
+        head.addWidget(QLabel(f"<b style='font-size:18px'>{title}</b>"), 1)
+        lay.addLayout(head)
+        self.msg = QLabel(text)
+        self.msg.setWordWrap(True)
+        lay.addWidget(self.msg)
+        self.count = QLabel("")
+        self.count.setObjectName("Muted")
+        lay.addWidget(self.count)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(button(cancel_text, "Ghost", None, self.reject))
+        self.ok_btn = button(ok_text, "Primary", "mdi6.download", self.accept)
+        row.addWidget(self.ok_btn)
+        lay.addLayout(row)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._tick)
+        self.timer.start(1000)
+        self._tick(first=True)
+
+    def _tick(self, first: bool = False):
+        if not first:
+            self.left -= 1
+        if self.left <= 0:
+            self.timer.stop()
+            self.accept()
+            return
+        self.count.setText(f"Empieza en {self.left} s…")

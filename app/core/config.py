@@ -28,6 +28,7 @@ DEFAULTS = {
     "github_repo": "arqueros11/eREDES",
     "github_token": "",
     "auto_check_updates": True,
+    "auto_install_updates": True,   # instalar sola al abrir (con 10 s para elegir "Más tarde")
     "company": "",
 }
 

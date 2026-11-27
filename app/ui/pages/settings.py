@@ -93,6 +93,9 @@ class SettingsPage(BasePage):
         fu.addRow("GitHub", self.repo)
         fu.addRow("Token", self.token)
         fu.addRow("", self.auto_upd)
+        self.auto_inst = QCheckBox("Instalar sola (10 s para elegir «Más tarde»)")
+        self.auto_inst.setChecked(bool(config.get("auto_install_updates")))
+        fu.addRow("", self.auto_inst)
         upd.add(fu)
         ub = button("Buscar actualizaciones", "", "mdi6.refresh", self._check_updates)
         ub.setMinimumHeight(42)
@@ -139,6 +142,7 @@ class SettingsPage(BasePage):
         config.set("github_repo", repo)
         config.set("github_token", self.token.text().strip())
         config.set("auto_check_updates", self.auto_upd.isChecked())
+        config.set("auto_install_updates", self.auto_inst.isChecked())
         new_theme = "light" if self.theme.currentIndex() == 0 else "dark"
         if new_theme != config.get("theme"):
             win = self.window()

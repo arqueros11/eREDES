@@ -1,4 +1,4 @@
-eREDES ERMA.V1.0.0 - INSTALAR EN WINDOWS 10 / 11
+eREDES - INSTALAR EN WINDOWS 10 / 11
 ================================================
 
 OPCION A (recomendada, sin instalar nada): descargar desde GitHub
