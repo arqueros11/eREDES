@@ -12,6 +12,7 @@ class AppBus(QObject):
     diagnose_printer = Signal(str, int, str)  # IP, puerto, cola
     recovery_target = Signal(str)             # IP encontrada en otra subred
     assign_free_ip = Signal(str)              # IP libre elegida en el escáner -> nueva IP de una impresora
+    ping_ips = Signal(list)                   # IPs -> ping continuo
     data_changed = Signal(str)                # área: printers | drivers | scan | history
 
 

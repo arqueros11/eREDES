@@ -22,10 +22,12 @@ log = logging.getLogger("eredes.ui")
 # Herramientas, ordenadas por uso. Sin dashboard: la app abre directamente en Impresoras.
 PAGES = [
     ("", [("printers", "Impresoras", "app.ui.pages.printers:PrintersPage"),
+          ("setup", "PC nueva", "app.ui.pages.setup:SetupPage"),
           ("scanner", "Escáner", "app.ui.pages.scanner:ScannerPage"),
-          ("drivers", "Drivers", "app.ui.pages.drivers:DriversPage"),
+          ("ping", "Ping", "app.ui.pages.ping:PingPage"),
           ("recovery", "Recuperar IP", "app.ui.pages.ip_recovery:IpRecoveryPage"),
           ("diagnostics", "Diagnóstico", "app.ui.pages.diagnostics:DiagnosticsPage"),
+          ("drivers", "Drivers", "app.ui.pages.drivers:DriversPage"),
           ("speedtest", "Speed Test", "app.ui.pages.speedtest:SpeedTestPage"),
           ("monitor", "Monitor", "app.ui.pages.monitor:MonitorPage"),
           ("reports", "Informes", "app.ui.pages.reports:ReportsPage"),
@@ -69,6 +71,7 @@ class MainWindow(QMainWindow):
         bus.diagnose_printer.connect(self._open_diagnose)
         bus.recovery_target.connect(self._open_recovery)
         bus.assign_free_ip.connect(self._assign_free_ip)
+        bus.ping_ips.connect(self._open_ping)
         self.navigate("printers")
         QTimer.singleShot(800, self._startup_checks)
         if config.get("auto_check_updates"):
@@ -108,7 +111,7 @@ class MainWindow(QMainWindow):
                 b.setCheckable(True)
                 b.setIcon(icons.icon(icons.NAV[key], pal.sidebar_text))
                 b.setIconSize(QSize(22, 22))
-                b.setMinimumHeight(46)
+                b.setMinimumHeight(42)
                 b.setCursor(Qt.PointingHandCursor)
                 b.clicked.connect(lambda _=False, k=key: self.navigate(k))
                 group.addButton(b)
@@ -214,6 +217,10 @@ class MainWindow(QMainWindow):
     def _open_diagnose(self, ip: str, port: int, queue: str):
         self.navigate("diagnostics")
         self._page("diagnostics").preset(ip, port, queue)
+
+    def _open_ping(self, ips: list):
+        self.navigate("ping")
+        self._page("ping").preset(ips)
 
     def _assign_free_ip(self, ip: str):
         self.navigate("recovery")

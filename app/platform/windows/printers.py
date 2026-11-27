@@ -53,6 +53,11 @@ def _json_list(text: str) -> list[dict]:
     return data or []
 
 
+# Controladores incluidos en Windows que se pueden instalar sin archivos externos.
+# "Generic / Text Only" sirve para térmicas ESC/POS: eREDES envía los tickets en RAW.
+INBOX_DRIVERS = ("Generic / Text Only",)
+
+
 def _need_admin() -> OpResult | None:
     if IS_WINDOWS and not is_admin():
         return OpResult(False, "Esta operación requiere ejecutar eREDES como administrador.",
@@ -110,7 +115,22 @@ class WindowsPrinterBackend(PrinterBackend):
                 pass
             out.append(SystemDriver(name=d.get("Name", ""), ref=d.get("Name", ""),
                                     manufacturer=d.get("Manufacturer") or "", version=ver, kind="installed"))
+        have = {d.name.lower() for d in out}
+        for n in INBOX_DRIVERS:
+            if n.lower() not in have:   # incluido en Windows: se instala solo al usarlo
+                out.append(SystemDriver(name=n, ref=n, manufacturer="Microsoft", kind="inbox"))
         return out
+
+    def ensure_driver(self, driver: DriverRef) -> OpResult:
+        """Comprueba que el controlador está instalado; los incluidos en Windows se instalan aquí."""
+        if self.driver_installed(driver.ref):
+            return OpResult(True, f"Controlador instalado: {driver.ref}")
+        if driver.kind == "inbox" or driver.ref in INBOX_DRIVERS:
+            r = run_powershell(f"Add-PrinterDriver -Name {ps_quote(driver.ref)}", timeout=180)
+            if self.driver_installed(driver.ref):
+                return OpResult(True, f"Controlador de Windows instalado: {driver.ref}")
+            return OpResult(False, f"Windows no pudo instalar '{driver.ref}'.", r.short_error())
+        return OpResult(False, f"El controlador '{driver.ref}' no está instalado en Windows.")
 
     def driver_installed(self, name: str) -> bool:
         r = run_powershell(f"if(Get-PrinterDriver -Name {ps_quote(name)} -ErrorAction SilentlyContinue)"
@@ -143,10 +163,11 @@ class WindowsPrinterBackend(PrinterBackend):
     def create_printer(self, name: str, driver: DriverRef, ip: str, port: int) -> OpResult:
         if (e := _need_admin()):
             return e
-        if driver.kind != "installed":
+        if driver.kind not in ("installed", "inbox"):
             return OpResult(False, "En Windows el controlador debe estar instalado antes de crear la impresora.")
-        if not self.driver_installed(driver.ref):
-            return OpResult(False, f"El controlador '{driver.ref}' no está instalado en Windows.")
+        dr = self.ensure_driver(driver)
+        if not dr.ok:
+            return dr
         pr = self.ensure_tcp_port(ip, port)
         if not pr.ok:
             return pr
@@ -199,8 +220,9 @@ class WindowsPrinterBackend(PrinterBackend):
     def set_driver(self, name: str, driver: DriverRef) -> OpResult:
         if (e := _need_admin()):
             return e
-        if not self.driver_installed(driver.ref):
-            return OpResult(False, f"El controlador '{driver.ref}' no está instalado.")
+        dr = self.ensure_driver(driver)
+        if not dr.ok:
+            return dr
         r = run_powershell(f"Set-Printer -Name {ps_quote(name)} -DriverName {ps_quote(driver.ref)}")
         if not r.ok:
             return OpResult(False, "Windows rechazó el cambio de controlador.", r.short_error())

@@ -32,6 +32,7 @@ def test_ticket(printer_name: str, ip: str, port: int, width: int = 42, extra_li
     parts = [
         INIT, CP858, ALIGN_C, DOUBLE_ON, BOLD_ON, _t("eREDES\n"), DOUBLE_OFF, BOLD_OFF,
         _t("PRINTER & NETWORK MANAGER\n"), _t(line + "\n"), BOLD_ON, _t("PRUEBA DE IMPRESION\n"), BOLD_OFF,
+        DOUBLE_ON, BOLD_ON, _t(f"{printer_name}\n"), BOLD_OFF, DOUBLE_OFF,
         _t(line + "\n"), ALIGN_L,
         _t(f"Impresora: {printer_name}\n"), _t(f"IP:        {ip}\n"), _t(f"Puerto:    {port}\n"),
         _t(f"Fecha:     {stamp}\n"), _t(line + "\n"),
@@ -42,6 +43,24 @@ def test_ticket(printer_name: str, ip: str, port: int, width: int = 42, extra_li
     parts += [_t(line + "\n"), ALIGN_C, _t("Si lee este ticket, la comunicacion\nTCP/IP es correcta.\n"),
               b"\n\n\n\n", CUT]
     return b"".join(parts)
+
+
+def identify_ticket(ip: str, port: int = 9100) -> bytes:
+    """Ticket para identificar una impresora a distancia: el último número de la IP enorme.
+
+    El técnico (por AnyDesk o por teléfono) pregunta "¿qué número salió en la impresora de cocina?"
+    y así sabe qué IP es cada impresora sin moverse del equipo.
+    """
+    last = ip.rsplit(".", 1)[-1]
+    stamp = time.strftime("%d/%m/%Y %H:%M")
+    return b"".join([
+        INIT, CP858, ALIGN_C, BOLD_ON, _t("eREDES - IDENTIFICAR\n"), BOLD_OFF, b"\n",
+        GS + b"!\x77", BOLD_ON, _t(f"{last}\n"), BOLD_OFF, DOUBLE_OFF, b"\n",
+        DOUBLE_ON, BOLD_ON, _t(f"{ip}\n"), BOLD_OFF, DOUBLE_OFF,
+        _t(f"Puerto {port}  -  {stamp}\n"), b"\n",
+        _t("Diga al tecnico este numero\ny donde esta esta impresora.\n"),
+        b"\n\n\n\n", CUT,
+    ])
 
 
 @dataclass

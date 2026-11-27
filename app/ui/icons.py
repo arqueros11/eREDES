@@ -12,6 +12,8 @@ except Exception:  # noqa: BLE001
     qta = None
 
 NAV = {
+    "setup": "mdi6.monitor-arrow-down-variant",
+    "ping": "mdi6.pulse",
     "scanner": "mdi6.radar",
     "printers": "mdi6.printer-outline",
     "drivers": "mdi6.folder-cog-outline",

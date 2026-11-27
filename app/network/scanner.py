@@ -44,6 +44,7 @@ class HostResult:
     dev_type: str = ""
     status: str = ""
     is_self: bool = False
+    installed_as: str = ""   # impresora de este equipo que usa esta IP
 
     @property
     def ports_text(self) -> str:
@@ -227,6 +228,7 @@ def scan(ctx, targets: list[str], ports: list[int] | None = None, identify: bool
     reserved = {r["ip"]: r["name"] for r in get_db().query("SELECT ip, name FROM printers")}
     for h in results.values():
         h.dev_type = classify(h, gateway, printer_ports)
+        h.installed_as = reserved.get(h.ip, "")
         if h.alive:
             h.status = "En uso"
             ctx.emit(h)

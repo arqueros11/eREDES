@@ -88,7 +88,8 @@ class ScannerPage(BasePage):
         fl.addWidget(self.summary)
         fl.addStretch(1)
         card.add(fl)
-        self.table = make_table(["IP", "Estado", "Tipo", "Fabricante", "Nombre", "MAC", "Puertos"], stretch_col=2)
+        self.table = make_table(["IP", "Estado", "Ping", "Tipo", "Fabricante", "Nombre", "MAC", "Puertos"],
+                                stretch_col=3)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._menu)
         self.table.doubleClicked.connect(lambda _i: self._primary_action())
@@ -100,8 +101,9 @@ class ScannerPage(BasePage):
         self.b_diag = button("Diagnosticar", "", "mdi6.stethoscope", self._diagnose)
         self.b_web = button("Web", "", "mdi6.open-in-new", self._open_web)
         self.b_check = button("Confirmar libre", "", "mdi6.shield-check", self._check)
+        self.b_ping = button("Ping continuo", "", "mdi6.pulse", self._ping)
         self.b_copy = button("Copiar IP", "Ghost", "mdi6.content-copy", self._copy)
-        for b in (self.b_main, self.b_diag, self.b_web, self.b_check, self.b_copy):
+        for b in (self.b_main, self.b_ping, self.b_diag, self.b_web, self.b_check, self.b_copy):
             b.setMinimumHeight(44)
             acts.addWidget(b)
         acts.addStretch(1)
@@ -186,6 +188,9 @@ class ScannerPage(BasePage):
     def _done(self, res):
         self.hosts = res["all"]
         used = sum(1 for h in self.hosts if h.status == "En uso")
+        if used:
+            self.fbtns[1].setChecked(True)   # ver primero lo que responde; «Libres» muestra el resto
+        self.table.setProperty("_sized", False)   # reajustar columnas a los datos nuevos
         self._render()
         if not res["cancelled"]:
             notify("ok", "Escaneo terminado", f"{used} en uso · {res['free']} libres")
@@ -220,12 +225,15 @@ class ScannerPage(BasePage):
             b.setText(f"{FILTERS[i]}  {counts[i]}" if self.hosts else FILTERS[i])
         hosts = [h for h in self.hosts if f == 0 or (f == 1 and h.status == "En uso")
                  or (f == 2 and h.status == "Libre") or (f == 3 and "mpresora" in h.dev_type)]
-        rows = [[h.ip, h.status, h.dev_type, h.vendor, h.hostname, h.mac, h.ports_text] for h in hosts]
+        rows = [[h.ip, h.status, f"{h.rtt_ms:.0f} ms" if (h.alive and h.rtt_ms is not None) else "",
+                 h.dev_type, h.vendor,
+                 (f"{h.installed_as} (instalada)" if h.installed_as and h.status == "En uso" else h.hostname),
+                 h.mac, h.ports_text] for h in hosts]
         st_color = {"En uso": pal.primary, "Libre": pal.success, "Reservada": pal.warning, "Sin respuesta": pal.muted}
 
         def type_color(s):
             return pal.success if s.startswith("Impresora") else (pal.warning if s.startswith("Posible") else None)
-        fill_table(self.table, rows, data=hosts, colors={1: lambda s: st_color.get(s), 2: type_color})
+        fill_table(self.table, rows, data=hosts, colors={1: lambda s: st_color.get(s), 3: type_color})
         sort_table(self.table, 0)
         if any(h.status == "Sin respuesta" for h in hosts):
             self.summary.setText("Fuera de tu red no se puede confirmar si una IP está libre")
@@ -249,6 +257,7 @@ class ScannerPage(BasePage):
         self.b_diag.setEnabled(used)
         self.b_web.setEnabled(used and any(p in h.open_ports for p in (80, 443, 8080)))
         self.b_check.setEnabled(free)
+        self.b_ping.setEnabled(bool(h))
         self.b_copy.setEnabled(bool(h))
 
     def _primary_action(self):
@@ -273,6 +282,11 @@ class ScannerPage(BasePage):
             scheme = "https" if 443 in h.open_ports and 80 not in h.open_ports else "http"
             port = ":8080" if (8080 in h.open_ports and 80 not in h.open_ports and 443 not in h.open_ports) else ""
             webbrowser.open(f"{scheme}://{h.ip}{port}/")
+
+    def _ping(self):
+        h = self._sel()
+        if h:
+            bus.ping_ips.emit([h.ip])
 
     def _copy(self):
         h = self._sel()
@@ -304,5 +318,6 @@ class ScannerPage(BasePage):
             m.addAction("Abrir web", self._open_web)
         else:
             m.addAction("Confirmar libre", self._check)
+        m.addAction("Ping continuo", self._ping)
         m.addAction("Copiar IP", self._copy)
         m.exec(self.table.viewport().mapToGlobal(pos))
